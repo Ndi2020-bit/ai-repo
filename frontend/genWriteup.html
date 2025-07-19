@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Generate Write-up</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .header {
+      background-color: #5C4CE6;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      font-size: 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      position: relative;
+    }
+
+    .back-btn {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background-color: #fff;
+      color: #5C4CE6;
+      border: 2px solid #fff;
+      border-radius: 5px;
+      padding: 6px 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .back-btn:hover {
+      background-color: #f0f0ff;
+    }
+
+    .container {
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .cluster-selection {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .cluster-selection h2 {
+      margin-top: 0;
+      color: #5C4CE6;
+    }
+
+    .select-container {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    select {
+      padding: 10px 15px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 1rem;
+      background-color: white;
+      min-width: 200px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #5C4CE6;
+    }
+
+    .generate-btn {
+      padding: 10px 20px;
+      background-color: #5C4CE6;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.2s ease;
+    }
+
+    .generate-btn:hover:not(:disabled) {
+      background-color: #4b3cc1;
+    }
+
+    .generate-btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+
+    .result-container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-top: 20px;
+    }
+
+    .result-section {
+      margin-bottom: 30px;
+    }
+
+    .result-section h3 {
+      color: #5C4CE6;
+      border-bottom: 2px solid #5C4CE6;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+
+    .result-section ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .result-section li {
+      background: #f8f9fa;
+      padding: 12px 15px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      border-left: 4px solid #5C4CE6;
+    }
+
+    .quote-item {
+      font-style: italic;
+      background: #e8f4f8;
+      border-left-color: #17a2b8;
+    }
+
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 5px;
+      border: 1px solid #f5c6cb;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    @media (max-width: 600px) {
+      .select-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      select {
+        min-width: auto;
+      }
+      
+      .header {
+        font-size: 1.25rem;
+      }
+      
+      .back-btn {
+        top: 15px;
+        transform: none;
+      }
+    }
+
+    seeClustersBtn {
+      text-align: center;
+      margin-top: 20px;
+      gap: 10px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <button id="backButton" class="back-btn" title="Go Back">← Back</button>
+    Generate Write-up
+  </div>
+
+  <div class="container">
+    <div class="cluster-selection">
+      <h2>Select Emotion Cluster</h2>
+      <div class="select-container">
+        <select id="clusterSelect">
+          <option value="">-- Loading clusters... --</option>
+        </select>
+        <button id="generateBtn" class="generate-btn" disabled>Generate Write-up</button>
+      </div>
+    </div>
+
+    <div id="loadingContainer" class="loading" style="display: none;">
+      <p>Generating write-up... Please wait.</p>
+    </div>
+
+    <div id="resultContainer" class="result-container" style="display: none;">
+      <div class="result-section">
+        <h3>📋 Headings</h3>
+        <ul id="headingsList"></ul>
+      </div>
+      
+      <div class="result-section">
+        <h3>📝 Subheadings</h3>
+        <ul id="subheadingsList"></ul>
+      </div>
+      
+      <div class="result-section">
+        <h3>💬 Representative Quotes</h3>
+        <ul id="quotesList"></ul>
+      </div>
+    </div>
+
+    <div id="errorContainer" class="error" style="display: none;">
+      <strong>Error:</strong> <span id="errorMessage"></span>
+    </div>
+
+    <button class="control-btn" id="seeClustersBtn">See Clusters</button>
+  </div>
+
+  <script>
+    const select = document.getElementById("clusterSelect");
+    const btn = document.getElementById("generateBtn");
+    const loadingContainer = document.getElementById("loadingContainer");
+    const resultContainer = document.getElementById("resultContainer");
+    const errorContainer = document.getElementById("errorContainer");
+    const errorMessage = document.getElementById("errorMessage");
+
+    // Back button functionality
+    document.getElementById("backButton").onclick = () => {
+      history.back();
+    };
+
+    // Load clusters on page load
+    async function loadClusters() {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/get_emotion_clusters_two");
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        select.innerHTML = "<option value=''>-- Select an emotion --</option>";
+        
+        if (Object.keys(data.clusters).length === 0) {
+          select.innerHTML = "<option value=''>No clusters found</option>";
+          return;
+        }
+
+        Object.entries(data.clusters).forEach(([emotion, count]) => {
+          const option = document.createElement("option");
+          option.value = emotion;
+          option.textContent = `${emotion} (${count} comments)`;
+          select.appendChild(option);
+        });
+
+        select.disabled = false;
+      } catch (error) {
+        console.error("Error loading clusters:", error);
+        select.innerHTML = "<option value=''>Error loading clusters</option>";
+        showError("Failed to load clusters: " + error.message);
+      }
+    }
+
+    // Enable/disable generate button based on selection
+    select.addEventListener("change", () => {
+      btn.disabled = !select.value;
+      hideResults();
+    });
+
+    // Generate write-up
+    btn.addEventListener("click", async () => {
+      const selectedEmotion = select.value;
+      if (!selectedEmotion) return;
+
+      showLoading();
+      btn.disabled = true;
+
+      try {
+        const response = await fetch("http://127.0.0.1:5000/generate_writeup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ emotion: selectedEmotion })
+        });
+
+        const data = await response.json();
+        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        displayResults(data);
+      } catch (error) {
+        console.error("Error generating write-up:", error);
+        showError("Failed to generate write-up: " + error.message);
+      } finally {
+        hideLoading();
+        btn.disabled = false;
+      }
+    });
+
+    function showLoading() {
+      loadingContainer.style.display = "block";
+      resultContainer.style.display = "none";
+      errorContainer.style.display = "none";
+    }
+
+    function hideLoading() {
+      loadingContainer.style.display = "none";
+    }
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorContainer.style.display = "block";
+      resultContainer.style.display = "none";
+    }
+
+    function hideResults() {
+      resultContainer.style.display = "none";
+      errorContainer.style.display = "none";
+    }
+
+    function displayResults(data) {
+      const headingsList = document.getElementById("headingsList");
+      const subheadingsList = document.getElementById("subheadingsList");
+      const quotesList = document.getElementById("quotesList");
+
+      // Clear previous results
+      headingsList.innerHTML = "";
+      subheadingsList.innerHTML = "";
+      quotesList.innerHTML = "";
+
+      // Display headings
+      if (data.headings && data.headings.length > 0) {
+        data.headings.forEach(heading => {
+          const li = document.createElement("li");
+          li.textContent = heading;
+          headingsList.appendChild(li);
+        });
+      } else {
+        headingsList.innerHTML = "<li>No headings generated</li>";
+      }
+
+      // Display subheadings
+      if (data.subheadings && data.subheadings.length > 0) {
+        data.subheadings.forEach(subheading => {
+          const li = document.createElement("li");
+          li.textContent = subheading;
+          subheadingsList.appendChild(li);
+        });
+      } else {
+        subheadingsList.innerHTML = "<li>No subheadings generated</li>";
+      }
+
+      // Display quotes
+      if (data.quotes && data.quotes.length > 0) {
+        data.quotes.forEach(quote => {
+          const li = document.createElement("li");
+          li.className = "quote-item";
+          li.textContent = quote;
+          quotesList.appendChild(li);
+        });
+      } else {
+        quotesList.innerHTML = "<li class='quote-item'>No quotes generated</li>";
+      }
+
+      resultContainer.style.display = "block";
+      errorContainer.style.display = "none";
+    }
+
+    // Load clusters when page loads
+    loadClusters();
+
+    document.getElementById("seeClustersBtn").onclick = () => {
+      window.location.href = "thirdPage.html";
+    };
+  </script>
+</body>
+</html>
