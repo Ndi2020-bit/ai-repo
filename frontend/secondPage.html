@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Processing Page</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+      color: #333;
+      line-height: 1.4;
+    }
+
+    .header {
+      background-color: #5C4CE6;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      font-size: 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      position: relative;
+    }
+
+    .back-btn {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background-color: #fff;
+      color: #5C4CE6;
+      border: 2px solid #fff;
+      border-radius: 5px;
+      padding: 6px 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .back-btn:hover {
+      background-color: #f0f0ff;
+    }
+
+    .container {
+      padding: 0 20px 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .progress-bar {
+      width: 80%;
+      background-color: #ddd;
+      border-radius: 20px;
+      height: 30px;
+      overflow: hidden;
+    }
+
+    .progress {
+      width: 0%;
+      background-color: #5C4CE6;
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .message {
+      font-size: 1rem;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .subreddit-list {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .subreddit-list label {
+      cursor: pointer;
+    }
+    .subreddit-list input {
+      margin-right: 4px;
+    }
+
+    .posts-container {
+      margin-top: 40px;
+      overflow-x: auto;
+    }
+
+    table.post-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+
+    table.post-table thead th {
+      position: sticky;
+      top: 0;
+      background-color: #f4f4f4;
+      padding: 8px;
+      border: 1px solid #ccc;
+    }
+
+    table.post-table th,
+    table.post-table td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .body-cell {
+      max-width: 300px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .body-cell:hover {
+      white-space: normal;
+      background: #fff;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (max-width: 600px) {
+      .body-cell { max-width: 150px; }
+      .header { font-size: 1.25rem; }
+      .message { font-size: 0.9rem; }
+      .back-btn { top: 15px; transform: none; }
+    }
+
+    .controls {
+      text-align: center;
+      margin-top: 20px;
+      gap: 10px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .control-btn {
+      padding: 10px 20px;
+      background-color: #5C4CE6;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .control-btn:hover {
+      background-color: #4b3cc1;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <button id="backButton" class="back-btn" title="Go Back">← Back</button>
+    Reddit Insight Generator
+  </div>
+
+  <div class="container">
+    <div class="progress-bar-container">
+      <div class="progress-bar">
+        <div class="progress" id="progress"></div>
+      </div>
+    </div>
+    <div class="message">Processing Your Request</div>
+    <div class="message" id="processingMessage">Please wait while we scrape your data...</div>
+
+    <div class="subreddit-list" id="subredditCheckboxes"></div>
+
+    <div class="posts-container" id="postsContainer" role="region" aria-label="Reddit comments"></div>
+
+    <div class="controls">
+
+      <button class="control-btn" id="generateWriteUpBtn">Generate Write-Up</button>
+      <button class="control-btn" id="seeClustersBtn">See Clusters</button>
+      <button class="control-btn" id="downloadAllBtn">Download All Comments</button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("backButton").onclick = () => {
+      history.back();
+    };
+
+    function escapeHTML(s) {
+      return s.replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;");
+    }
+
+    const subredditData = JSON.parse(localStorage.getItem("subredditData")) || {};
+    const subreddits = subredditData.subreddits || [];
+    const timeframe = subredditData.timeframe;
+
+    const checkboxContainer = document.getElementById("subredditCheckboxes");
+    subreddits.forEach((sub, i) => {
+      const label = document.createElement("label");
+      label.innerHTML = `
+        <input type="radio" name="subreddit" value="${sub}"
+          ${i === 0 ? "checked" : ""} /> ${sub}
+      `;
+      checkboxContainer.appendChild(label);
+    });
+
+    checkboxContainer.addEventListener("change", () => {
+      const sel = document.querySelector('input[name="subreddit"]:checked').value;
+      fetchFromDB(sel);
+    });
+
+    let progress = 0;
+    const progElem = document.getElementById("progress");
+    const msgElem = document.getElementById("processingMessage");
+
+    function simulate() {
+      const iv = setInterval(() => {
+        progress = Math.min(progress + 10, 100);
+        progElem.style.width = progress + "%";
+        if (progress >= 100) {
+          clearInterval(iv);
+          msgElem.textContent = "Scrape complete! Showing results...";
+          postScrape(subreddits); // ✅ send all subreddits
+        }
+      }, 300);
+    }
+    simulate();
+
+    async function postScrape(subs) {
+      try {
+        const res = await fetch("http://127.0.0.1:5000/scrape_comments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subreddits: subs, timeframe })  // ✅ send full array
+        });
+        const { comments } = await res.json();
+        renderTable(comments || []);
+      } catch {
+        document.getElementById("postsContainer")
+          .innerHTML = "<p>Error during scrape.</p>";
+      }
+    }
+
+    async function fetchFromDB(sub) {
+      try {
+        const res = await fetch(
+          `http://127.0.0.1:5000/comments_by_subreddit?name=${encodeURIComponent(sub)}`
+        );
+        const { comments } = await res.json();
+        renderTable(comments || []);
+      } catch {
+        document.getElementById("postsContainer")
+          .innerHTML = "<p>Error fetching from DB.</p>";
+      }
+    }
+
+    function renderTable(posts) {
+      const c = document.getElementById("postsContainer");
+      c.innerHTML = "";
+      if (!posts.length) {
+        c.innerHTML = "<p>No comments found.</p>";
+        return;
+      }
+      const tbl = document.createElement("table");
+      tbl.className = "post-table";
+      tbl.innerHTML = `
+        <thead>
+          <tr>
+            <th>ID</th><th>Submission ID</th><th>Subreddit</th>
+            <th>Author</th><th>Body</th><th>Created</th>
+            <th>Score</th><th>Emotion</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${posts.map(p => `
+            <tr>
+              <td>${escapeHTML(p.id)}</td>
+              <td>${escapeHTML(p.post_id)}</td>
+              <td>${escapeHTML(p.subreddit)}</td>
+              <td>${escapeHTML(p.author || "N/A")}</td>
+              <td class="body-cell">${escapeHTML(p.body)}</td>
+              <td>${escapeHTML(p.created_utc)}</td>
+              <td>${escapeHTML(String(p.score))}</td>
+              <td>${escapeHTML(p.emotion || "N/A")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      `;
+      c.appendChild(tbl);
+    }
+
+    document.getElementById("generateWriteUpBtn").onclick = () =>{
+      window.location.href = "genWriteup.html";
+    };
+
+    document.getElementById("seeClustersBtn").onclick = () => {
+      window.location.href = "thirdPage.html";
+    };
+
+    document.getElementById("downloadAllBtn").onclick = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/download_all_comments");
+        if (!response.ok) throw new Error("Network response was not ok");
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "reddit_comments.csv";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("Failed to download CSV:", err);
+        alert("Failed to download the CSV file.");
+      }
+    };
+  </script>
+</body>
+</html>
