@@ -1,81 +1,76 @@
 import os
-import requests
+from openai import OpenAI
+from dotenv import load_dotenv
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_API_KEY")
+load_dotenv()
 
-HEADERS = {
-    "apikey": SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}",
-    "Content-Type": "application/json",
-}
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 
-def get_emotion_clusters_one():
-    """
-    Returns list of unique emotions found in comments table.
-    """
-    url = f"{SUPABASE_URL}/rest/v1/comments?select=emotion&emotion=not.is.null&distinct=emotion"
-    res = requests.get(url, headers=HEADERS)
-    if res.status_code != 200:
-        raise Exception(f"Failed to fetch emotion clusters: {res.text}")
-    data = res.json()
-    # Extract emotions, filter out nulls just in case
-    emotions = [item['emotion'] for item in data if item.get('emotion')]
-    return emotions
+client = OpenAI(
+    api_key=OPENAI_API_KEY,
+    base_url=OPENAI_BASE_URL
+)
 
-def get_comments_for_emotion_one(emotion, limit=50):
-    """
-    Returns latest full comment dicts (not just body) for a given emotion.
-    """
-    url = (
-        f"{SUPABASE_URL}/rest/v1/comments"
-        f"?select=id,post_id,subreddit,author,body,created_utc,score,emotion"
-        f"&emotion=eq.{emotion}"
-        f"&order=created_utc.desc&limit={limit}"
-    )
-    res = requests.get(url, headers=HEADERS)
-    if res.status_code != 200:
-        raise Exception(f"Failed to fetch comments for emotion {emotion}: {res.text}")
-    data = res.json()
+def generate_writeup_for_emotion(emotion, comments):
+    if not comments:
+        raise ValueError(f"No comments provided for emotion: {emotion}")
 
-    # No need to rename "emotion" field; it already matches frontend expectation
-    return data
+    sample_comments = comments[:10]
+    comments_text = "\n".join(f"- {c}" for c in sample_comments)
 
-import os
-import requests
-from collections import Counter
+    prompt = f"""
+You are a professional marketing writer analyzing online user discussions. Your job is to process the following real user comments expressing the emotion "{emotion}" and create:
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_API_KEY")
+1. Three compelling, marketable **headings** summarizing major ideas or topics.
+2. Three elaborative **subheadings** that add context to the above.
+3. Three representative **quotes** directly from the user comments that reflect the emotion and its key points.
 
-HEADERS = {
-    "apikey": SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}",
-    "Content-Type": "application/json",
-}
+Use this exact format (no extra explanation):
 
-def get_emotion_counts():
-    """
-    Returns a list of {emotion: str, count: int} by fetching
-    all non-null emotions and counting them in Python.
-    """
-    # 1) Fetch all comments with an emotion
-    url = (
-        f"{SUPABASE_URL}/rest/v1/comments"
-        "?select=emotion&emotion=not.is.null"
-        "&limit=10000"      # adjust if you have >10k comments
-    )
-    res = requests.get(url, headers=HEADERS)
-    if res.status_code != 200:
-        raise Exception(f"Failed to fetch emotion list: {res.status_code} {res.text}")
+Headings:
+- Heading 1
+- Heading 2
+- Heading 3
 
-    data = res.json()
-    # 2) Collect only the emotion field
-    emotions = [item["emotion"] for item in data if item.get("emotion")]
+Subheadings:
+- Subheading 1
+- Subheading 2
+- Subheading 3
 
-    # 3) Tally them
-    counter = Counter(emotions)
+Quotes:
+- Quote 1
+- Quote 2
+- Quote 3
 
-    # 4) Build the list in the format [{emotion, count}, ...]
-    return [{"emotion": emo, "count": counter[emo]} for emo in counter]
+Comments:
+{comments_text}
+"""
 
+    try:
+        response = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3
+        )
+        text = response.choices[0].message.content
+
+        result = {"headings": [], "subheadings": [], "quotes": []}
+        current = None
+
+        for line in text.splitlines():
+            line = line.strip()
+            if line.lower().startswith("headings"):
+                current = "headings"
+            elif line.lower().startswith("subheadings"):
+                current = "subheadings"
+            elif line.lower().startswith("quotes"):
+                current = "quotes"
+            elif line.startswith("-") and current:
+                result[current].append(line[1:].strip())
+
+        return result
+
+    except Exception as e:
+        print("❌ Error in generate_writeup_for_emotion:", e)
+        raise
