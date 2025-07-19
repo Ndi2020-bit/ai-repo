@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Emotion Clustering</title>
+  <style>
+    /* Your existing styles */
+    * { box-sizing: border-box; }
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+      color: #333;
+      line-height: 1.6;
+    }
+    .header {
+      background-color: #5C4CE6;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      font-size: 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      position: relative;
+    }
+    .back-btn {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background-color: #fff;
+      color: #5C4CE6;
+      border: 2px solid #fff;
+      border-radius: 5px;
+      padding: 6px 12px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .back-btn:hover {
+      background-color: #f0f0ff;
+    }
+    .container {
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .cluster-selection {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .cluster-selection h2 {
+      margin-top: 0;
+      color: #5C4CE6;
+    }
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 10px;
+    }
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      background: #f8f9fa;
+      padding: 10px 15px;
+      border-radius: 5px;
+      border-left: 4px solid #5C4CE6;
+      cursor: pointer;
+      user-select: none;
+    }
+    .checkbox-item input {
+      margin-right: 10px;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .comment-section {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-top: 20px;
+      overflow-x: auto;
+    }
+    .comment-section h3 {
+      color: #5C4CE6;
+      border-bottom: 2px solid #5C4CE6;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+    table.comment-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 800px;
+    }
+    table.comment-table thead th {
+      background-color: #f4f4f4;
+      padding: 8px;
+      border: 1px solid #ccc;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      text-align: left;
+    }
+    table.comment-table th,
+    table.comment-table td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      vertical-align: top;
+    }
+    table.comment-table td {
+      max-width: 250px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    table.comment-table td.body-cell:hover {
+      white-space: normal;
+      background: #fff;
+      position: relative;
+      z-index: 2;
+    }
+    .no-comments {
+      color: #666;
+      font-style: italic;
+      padding: 12px 15px;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 5px;
+      border: 1px solid #f5c6cb;
+      margin-top: 20px;
+    }
+    @media (max-width: 600px) {
+      .checkbox-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .checkbox-item {
+        width: 100%;
+      }
+      .header {
+        font-size: 1.25rem;
+      }
+      .back-btn {
+        top: 15px;
+        transform: none;
+      }
+      table.comment-table {
+        min-width: auto;
+      }
+      table.comment-table td {
+        max-width: 150px;
+      }
+    }
+    #generateWriteUpBtn {
+      text-align: center;
+      margin-top: 20px;
+      gap: 10px;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <button id="backButton" class="back-btn" title="Go Back">← Back</button>
+    Emotion Clustering
+  </div>
+
+  <div class="container">
+    <div class="cluster-selection">
+      <h2>Select Emotion</h2>
+      <div id="checkboxContainer" class="checkbox-group">
+        <!-- Emotion checkboxes inserted by JS -->
+      </div>
+    </div>
+
+    <div id="commentContainer" class="comment-section" style="display:none;">
+      <h3 id="commentHeader">Comments</h3>
+      <table id="commentTable" class="comment-table" style="display:none;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Submission ID</th>
+            <th>Subreddit</th>
+            <th>Author</th>
+            <th>Body</th>
+            <th>Created</th>
+            <th>Score</th>
+            <th>Emotion</th>
+          </tr>
+        </thead>
+        <tbody id="commentTableBody"></tbody>
+      </table>
+      <p id="noComments" class="no-comments" style="display:none;">No comments exist for this emotion.</p>
+    </div>
+
+    <div id="errorContainer" class="error" style="display:none;">
+      <strong>Error:</strong> <span id="errorMessage"></span>
+    </div>
+
+    <div id="generateWriteUpBtn" style="text-align:center; margin-top: 30px;">
+      <button style="
+        background-color: #5C4CE6;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 1rem;
+        cursor: pointer;
+      ">
+        Generate Write-up
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const EMOTIONS = [
+      "Joy", "Sadness", "Anger", "Fear", "Surprise", "Disgust", "Neutral",
+      "Hope", "Frustration", "Humor", "Confusion", "Curiosity", "Amusement",
+      "Empathy", "Gratitude", "Relief", "Irony", "Sympathy", "Anticipation", "Interest"
+    ];
+
+    const checkboxContainer = document.getElementById("checkboxContainer");
+    const commentContainer = document.getElementById("commentContainer");
+    const commentHeader = document.getElementById("commentHeader");
+    const commentTable = document.getElementById("commentTable");
+    const commentTableBody = document.getElementById("commentTableBody");
+    const noComments = document.getElementById("noComments");
+    const errorContainer = document.getElementById("errorContainer");
+    const errorMessage = document.getElementById("errorMessage");
+    const backButton = document.getElementById("backButton");
+
+    backButton.onclick = () => history.back();
+
+    function showComments(comments) {
+      commentHeader.textContent = "Comments";
+      commentTableBody.innerHTML = "";
+
+      if (!comments || comments.length === 0) {
+        noComments.style.display = "block";
+        commentTable.style.display = "none";
+      } else {
+        noComments.style.display = "none";
+        commentTable.style.display = "table";
+
+        comments.forEach(comment => {
+          const tr = document.createElement("tr");
+
+          const tdId = document.createElement("td");
+          tdId.textContent = comment.id || "N/A";
+
+          const tdPostId = document.createElement("td");
+          tdPostId.textContent = comment.post_id || "N/A";
+
+          const tdSubreddit = document.createElement("td");
+          tdSubreddit.textContent = comment.subreddit || "N/A";
+
+          const tdAuthor = document.createElement("td");
+          tdAuthor.textContent = comment.author || "N/A";
+
+          const tdBody = document.createElement("td");
+          tdBody.className = "body-cell";
+          tdBody.textContent = comment.body || "";
+
+          const tdCreated = document.createElement("td");
+          tdCreated.textContent = comment.created_utc || "N/A";
+
+          const tdScore = document.createElement("td");
+          tdScore.textContent = comment.score !== undefined ? comment.score : "N/A";
+
+          const tdEmotion = document.createElement("td");
+          tdEmotion.textContent = comment.emotion || "N/A";
+
+          tr.appendChild(tdId);
+          tr.appendChild(tdPostId);
+          tr.appendChild(tdSubreddit);
+          tr.appendChild(tdAuthor);
+          tr.appendChild(tdBody);
+          tr.appendChild(tdCreated);
+          tr.appendChild(tdScore);
+          tr.appendChild(tdEmotion);
+
+          commentTableBody.appendChild(tr);
+        });
+      }
+      commentContainer.style.display = "block";
+      errorContainer.style.display = "none";
+    }
+
+    async function fetchCommentsAndShow(emotion) {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/get_comments_by_emotion_one", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ emotion })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+
+        showComments(data.comments);
+      } catch (err) {
+        console.error("Failed to fetch comments:", err);
+        showError("Failed to fetch comments for " + emotion + ": " + err.message);
+      }
+    }
+
+    function clearComments() {
+      commentContainer.style.display = "none";
+      commentHeader.textContent = "";
+      commentTableBody.innerHTML = "";
+      noComments.style.display = "none";
+      errorContainer.style.display = "none";
+    }
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorContainer.style.display = "block";
+      commentContainer.style.display = "none";
+    }
+
+    async function fetchEmotionCounts() {
+      try {
+        const response = await fetch("http://127.0.0.1:5000/get_emotion_counts");
+        if (!response.ok) throw new Error(`Error fetching counts: ${response.statusText}`);
+
+        const data = await response.json(); // Expect [{emotion: string, count: number}, ...]
+        const counts = {};
+        data.forEach(({ emotion, count }) => {
+          counts[emotion] = count;
+        });
+        return counts;
+      } catch (err) {
+        console.error("Error fetching emotion counts:", err);
+        return {}; // fallback empty counts
+      }
+    }
+
+    async function loadClusters() {
+      checkboxContainer.innerHTML = "";
+
+      const counts = await fetchEmotionCounts();
+
+      EMOTIONS.forEach(emotion => {
+        const label = document.createElement("label");
+        label.className = "checkbox-item";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.name = "emotion";
+        checkbox.value = emotion;
+
+        checkbox.addEventListener("change", async (e) => {
+          if (e.target.checked) {
+            document.querySelectorAll('input[name="emotion"]').forEach(cb => {
+              if (cb !== e.target) cb.checked = false;
+            });
+            await fetchCommentsAndShow(e.target.value);
+          } else {
+            clearComments();
+          }
+        });
+
+        label.appendChild(checkbox);
+
+        const count = counts[emotion] || 0;
+        label.appendChild(document.createTextNode(` ${emotion} (${count})`));
+
+        checkboxContainer.appendChild(label);
+      });
+    }
+
+    loadClusters();
+
+    document.getElementById("generateWriteUpBtn").onclick = () => {
+      window.location.href = "genWriteup.html";
+    };
+  </script>
+</body>
+</html>
