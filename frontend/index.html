@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Insight Scraper</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      background-color: #5C4CE6;
+      color: white;
+      text-align: center;
+      padding: 20px 0;
+      margin: 0;
+      position: relative;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 50px;
+      margin-top: 40px;
+      padding: 0 20px;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1 1 300px;
+      min-width: 280px;
+    }
+
+    input {
+      background-color: #E0E0E0;
+      text-align: center;
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+      width: 200px;
+    }
+
+    .tag-container {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .tag {
+      background-color: #DDD;
+      padding: 6px 12px;
+      border-radius: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .remove-btn {
+      cursor: pointer;
+      color: #888;
+      font-weight: bold;
+    }
+
+    .submit-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 30px;
+    }
+
+    .submit-btn {
+      display: inline-block;
+      background-color: #5C4CE6;
+      color: white;
+      padding: 12px 30px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        flex-direction: column;
+        gap: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>
+    Insight Scraper
+  </h1>
+
+  <div class="container">
+    <!-- Left Column -->
+    <div class="column">
+      <h2>Enter up to 3 Subreddits</h2>
+      <input id="subredditInput" type="text" placeholder="e.g. health" />
+      <div id="subredditTags" class="tag-container"></div>
+    </div>
+
+    <!-- Right Column -->
+    <div class="column">
+      <h2>Select Total Timeframe (in minutes)</h2>
+      <input id="timeframeInput" type="text" placeholder="e.g. 2" />
+    </div>
+  </div>
+
+  <!-- Submit Button -->
+  <div class="submit-container">
+    <button id="submitBtn" class="submit-btn">Submit</button>
+  </div>
+
+  <script>
+    const input = document.getElementById("subredditInput");
+    const tagsContainer = document.getElementById("subredditTags");
+    const timeframeInput = document.getElementById("timeframeInput");
+    const submitBtn = document.getElementById("submitBtn");
+
+    let subreddits = [];
+
+    input.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const value = input.value.trim().toLowerCase();
+        if (!value || subreddits.includes(value) || subreddits.length >= 3) return;
+        subreddits.push(value);
+        renderTags();
+        input.value = "";
+      }
+    });
+
+    function removeSubreddit(name) {
+      subreddits = subreddits.filter(s => s !== name);
+      renderTags();
+    }
+
+    function renderTags() {
+      tagsContainer.innerHTML = "";
+      subreddits.forEach(sub => {
+        const tag = document.createElement("div");
+        tag.className = "tag";
+
+        const text = document.createElement("span");
+        text.textContent = sub;
+
+        const removeBtn = document.createElement("span");
+        removeBtn.textContent = "×";
+        removeBtn.className = "remove-btn";
+        removeBtn.onclick = () => removeSubreddit(sub);
+
+        tag.appendChild(text);
+        tag.appendChild(removeBtn);
+        tagsContainer.appendChild(tag);
+      });
+    }
+
+    submitBtn.addEventListener("click", function(event) {
+      event.preventDefault();
+
+      if (subreddits.length === 0) {
+        alert("Please enter at least one subreddit.");
+        return;
+      }
+
+      const timeframeValue = timeframeInput.value.trim();
+      const timeframeNum = Number(timeframeValue);
+
+      if (!timeframeValue || isNaN(timeframeNum) || timeframeNum <= 0) {
+        alert("Please enter a valid positive number for timeframe.");
+        return;
+      }
+
+      localStorage.setItem("subredditData", JSON.stringify({
+        subreddits: subreddits,
+        timeframe: timeframeNum
+      }));
+
+      // Redirect to the second page
+      window.location.href = "secondPage.html";
+    });
+  </script>
+</body>
+</html>
